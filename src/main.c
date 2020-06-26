@@ -5,7 +5,6 @@
 #define MEDIUM_ENEMIES 22
 #define LARGE_ENEMIES 22
 #define MAX_BULLETS	3
-#define PLAYER_MAX_BULLETS	1
 #define LEFT_EDGE 0
 #define RIGHT_EDGE 320
 int enemiesLeft = 0;
@@ -22,13 +21,12 @@ typedef enum{
     LEFT,
     RIGHT
 }GAME_DIRECTION;
-
 int dir=RIGHT;
 
 //Variable to track if the enemy sprites should drop or not
 bool drop = FALSE;
 
-//Variable to track if the player has shot a bullets
+//Variable to track if the player has shot a bullet
 bool player_bullet_shot = FALSE;
 
 //Handle the scoreboard
@@ -67,6 +65,10 @@ Entity bullets[MAX_BULLETS];
 Entity small_enemies[SMALL_ENEMIES];
 Entity medium_enemies[MEDIUM_ENEMIES];
 Entity large_enemies[LARGE_ENEMIES];
+
+//Define sound effects
+#define PLAYER_BULLET_SFX       65
+#define ALIEN_DESTROYED_SFX     66
 
 //Function to kill a sprite
 void killEntity(Entity* e)
@@ -228,6 +230,9 @@ void shootBullet()
       	SPR_setPosition(b->sprite,b->x,b->y);
       	bulletsOnScreen++;
 				player_bullet_shot = TRUE;
+
+        //Play the shot sound effect
+        XGM_startPlayPCM(PLAYER_BULLET_SFX, 1, SOUND_PCM_CH2);
       	break;
     	}
   	}
@@ -257,7 +262,7 @@ void positionBullets()
 	}
 }
 
-//Credit to ohsat for this :)
+//Function to determine if an object has collided - full credit to ohsat for this :)
 int collideEntities(Entity* a, Entity* b)
 {
     return (a->x < b->x + b->w && a->x + a->w > b->x && a->y < b->y + b->h && a->y + a->h >= b->y);
@@ -293,6 +298,9 @@ void handleCollisions(){
 						updateScoreDisplay();
 
 						player_bullet_shot = FALSE;
+
+            //Play the alien destroyed sound effect
+            XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH2);
     				break;
     			}
 				}
@@ -315,6 +323,9 @@ void handleCollisions(){
 						updateScoreDisplay();
 
 						player_bullet_shot = FALSE;
+
+            //Play the alien destroyed sound effect
+            XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH2);
     				break;
     			}
 				}
@@ -337,6 +348,9 @@ void handleCollisions(){
 						updateScoreDisplay();
 
 						player_bullet_shot = FALSE;
+
+            //Play the alien destroyed sound effect
+            XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH2);
     				break;
     			}
 				}
@@ -482,6 +496,10 @@ int main()
 
 	//Draw the initial scoreboard
 	updateScoreDisplay();
+
+  //Setup the sound effects
+  XGM_setPCM(PLAYER_BULLET_SFX, player_bullet_sfx, sizeof(player_bullet_sfx));
+  XGM_setPCM(ALIEN_DESTROYED_SFX, alien_destroyed_sfx, sizeof(alien_destroyed_sfx));
 
   while(TRUE)
   {
