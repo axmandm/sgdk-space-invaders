@@ -29,6 +29,9 @@ bool drop = FALSE;
 //Variable to track if the player has shot a bullet
 bool player_bullet_shot = FALSE;
 
+//Variable to track if the game is started
+bool game_running  = FALSE;
+
 //Handle the scoreboard
 void updateScoreDisplay(){
 		if (hi_score < score)
@@ -82,6 +85,146 @@ void reviveEntity(Entity* e)
 {
 	e->health = 1;
 	SPR_setVisibility(e->sprite,VISIBLE);
+}
+
+//Function to handle player bullets
+void shootBullet()
+{
+	if(player_bullet_shot == FALSE)
+	{
+  	Entity* b;
+    u16 i = 0;
+    for(i=0; i<1; i++)
+		{
+    	b = &bullets[i];
+      if(b->health == 0)
+			{
+				b->x = player.x+4;
+      	b->y = player.y;
+
+      	reviveEntity(b);
+      	b->vely = -3;
+
+      	SPR_setPosition(b->sprite,b->x,b->y);
+      	bulletsOnScreen++;
+				player_bullet_shot = TRUE;
+
+        //Play the shot sound effect
+        XGM_startPlayPCM(PLAYER_BULLET_SFX, 1, SOUND_PCM_CH2);
+      	break;
+    	}
+  	}
+	}
+}
+
+//Function to move player bullets on screen
+void positionBullets()
+{
+	u16 i = 0;
+	Entity *b;
+	for(i = 0; i < MAX_BULLETS; i++)
+	{
+    b = &bullets[i];
+    if(b->health > 0)
+		{
+			b->y += b->vely;
+			if(b->y + b->h < 0)
+			{
+    		killEntity(b);
+    		bulletsOnScreen--;
+				player_bullet_shot = FALSE;
+			} else {
+				SPR_setPosition(b->sprite,b->x,b->y);
+			}
+    }
+	}
+}
+
+//Function to handle joypad input in game
+void doActionJoy(u8 numjoy, u16 value)
+{
+  if (numjoy == JOY_1)
+  {
+    if (value & BUTTON_START && game_running == FALSE)
+    {
+      game_running = TRUE;
+    }
+
+    if (value & BUTTON_LEFT)
+    {
+			if (player.x > 0)
+			{
+				player.x -= player.velx;
+				SPR_setPosition(player.sprite,player.x,player.y);
+			}
+    }
+
+    if (value & BUTTON_RIGHT)
+    {
+			if (player.x < 304)
+			{
+				player.x += player.velx;
+				SPR_setPosition(player.sprite,player.x,player.y);
+			}
+    }
+
+		if (value & BUTTON_A)
+    {
+      shootBullet();
+    }
+  }
+}
+
+//Function to draw text in the center of the screen, creates a variable for the vertical position of the text
+int v_pos;
+void centeredText(char s[], int v_pos){
+	VDP_drawText(s, 20 - strlen(s)/2 ,v_pos);
+}
+
+//Function to handle the game over event
+void gameOver()
+{
+  char msg_game_over[10] = "GAME OVER\0";
+  centeredText(msg_game_over, 8);
+  waitMs(5000);
+  game_running = FALSE;
+  score = 0;
+  SYS_reset();
+}
+
+//Function to display a start screen
+void startScreen()
+{
+  char msg_start_1[5] = "PLAY\0";
+  char msg_start_2[15] = "SPACE INVADERS\0";
+  char msg_start_3[22] = "*SCORE ADVANCE TABLE*\0";
+  char msg_start_4[11] = "=? MYSTERY\0";
+  char msg_start_5[11] = "=30 POINTS\0";
+  char msg_start_6[11] = "=20 POINTS\0";
+  char msg_start_7[11] = "=10 POINTS\0";
+  char msg_start_8[11] = "PUSH START\0";
+
+  /*Write title screen text*/
+  centeredText(msg_start_1, 6);
+  centeredText(msg_start_2, 8);
+  centeredText(msg_start_3, 12);
+  centeredText(msg_start_4, 14);
+  centeredText(msg_start_5, 16);
+  centeredText(msg_start_6, 18);
+  centeredText(msg_start_7, 20);
+
+  while(game_running == FALSE)
+  {
+    doActionJoy(JOY_1, JOY_readJoypad(JOY_1));
+    centeredText(msg_start_8, 24);
+    waitMs(500);
+    doActionJoy(JOY_1, JOY_readJoypad(JOY_1));
+    VDP_clearText(0,24,40);
+    waitMs(500);
+  }
+
+  //Once the game has been started, clear the text from the screen
+  VDP_clearTextArea(0,6,40,20);
 }
 
 //Function to check if the edge has been hit
@@ -144,10 +287,16 @@ void positionEnemies()
 				se->velx = 1;
 			}
 			se->x += se->velx;
-			if (drop == TRUE){
+			if (drop == TRUE)
+      {
 				se->y = se->y +1;
 			}
-			SPR_setPosition(se->sprite,se->x,se->y);
+      if (se->y > 185)
+      {
+        gameOver();
+      } else {
+        SPR_setPosition(se->sprite,se->x,se->y);
+      }
 		}
 	}
   for(i = 0; i < MEDIUM_ENEMIES; i++)
@@ -162,10 +311,15 @@ void positionEnemies()
 				me->velx = 1;
 			}
 			me->x += me->velx;
-			if (drop == TRUE){
+			if (drop == TRUE)
+      {
 				me->y = me->y +1;
 			}
-			SPR_setPosition(me->sprite,me->x,me->y);
+      if (me->y > 185){
+        gameOver();
+      } else {
+        SPR_setPosition(me->sprite,me->x,me->y);
+      }
 		}
 	}
   for(i = 0; i < LARGE_ENEMIES; i++)
@@ -180,10 +334,16 @@ void positionEnemies()
 				le->velx = 1;
 			}
 			le->x += le->velx;
-			if (drop == TRUE){
+			if (drop == TRUE)
+      {
 				le->y = le->y +1;
 			}
-			SPR_setPosition(le->sprite,le->x,le->y);
+      if (le->y > 185)
+      {
+        gameOver();
+      } else {
+        SPR_setPosition(le->sprite,le->x,le->y);
+      }
 		}
 	}
 	drop = FALSE;
@@ -209,58 +369,7 @@ void animateEnemies()
 	}
 }
 
-//Function to handle player bullets
-void shootBullet()
-{
-	if(player_bullet_shot == FALSE)
-	{
-  	Entity* b;
-    u16 i = 0;
-    for(i=0; i<1; i++)
-		{
-    	b = &bullets[i];
-      if(b->health == 0)
-			{
-				b->x = player.x+4;
-      	b->y = player.y;
 
-      	reviveEntity(b);
-      	b->vely = -3;
-
-      	SPR_setPosition(b->sprite,b->x,b->y);
-      	bulletsOnScreen++;
-				player_bullet_shot = TRUE;
-
-        //Play the shot sound effect
-        XGM_startPlayPCM(PLAYER_BULLET_SFX, 1, SOUND_PCM_CH2);
-      	break;
-    	}
-  	}
-	}
-}
-
-//Function to move player bullets on screen
-void positionBullets()
-{
-	u16 i = 0;
-	Entity *b;
-	for(i = 0; i < MAX_BULLETS; i++)
-	{
-    b = &bullets[i];
-    if(b->health > 0)
-		{
-			b->y += b->vely;
-			if(b->y + b->h < 0)
-			{
-    		killEntity(b);
-    		bulletsOnScreen--;
-				player_bullet_shot = FALSE;
-			} else {
-				SPR_setPosition(b->sprite,b->x,b->y);
-			}
-    }
-	}
-}
 
 //Function to determine if an object has collided - full credit to ohsat for this :)
 int collideEntities(Entity* a, Entity* b)
@@ -360,38 +469,18 @@ void handleCollisions(){
 	}
 }
 
-//Function to handle joypad input in game
-void doActionJoy(u8 numjoy, u16 value)
-{
-    if (numjoy == JOY_1)
-    {
-        if (value & BUTTON_LEFT)
-        {
-					if (player.x > 0)
-					{
-						player.x -= player.velx;
-						SPR_setPosition(player.sprite,player.x,player.y);
-					}
-        }
 
-        if (value & BUTTON_RIGHT)
-        {
-					if (player.x < 304)
-					{
-						player.x += player.velx;
-						SPR_setPosition(player.sprite,player.x,player.y);
-					}
-        }
-
-				if (value & BUTTON_A)
-        {
-          shootBullet();
-        }
-    }
-}
 
 int main()
 {
+
+  //Draw the initial scoreboard
+	updateScoreDisplay();
+
+  if (game_running == FALSE)
+  {
+    startScreen();
+  }
 
 	//Initialise the sprite engine
   SPR_init();
@@ -494,14 +583,11 @@ int main()
   VDP_setPalette(PAL1, player_ship.palette->data);
   VDP_setPalette(PAL2, small_enemy.palette->data);
 
-	//Draw the initial scoreboard
-	updateScoreDisplay();
-
   //Setup the sound effects
   XGM_setPCM(PLAYER_BULLET_SFX, player_bullet_sfx, sizeof(player_bullet_sfx));
   XGM_setPCM(ALIEN_DESTROYED_SFX, alien_destroyed_sfx, sizeof(alien_destroyed_sfx));
 
-  while(TRUE)
+  while(game_running == TRUE)
   {
 		//Watch for joypad inputs (direction controls)
     doActionJoy(JOY_1, JOY_readJoypad(JOY_1));

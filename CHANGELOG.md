@@ -7,11 +7,22 @@
 - Enemy generation loop - is there a need to define them all separately?
 
 ## Todo
-- Enemy/Player collision detection
-- Sound
+- Additional sounds
+- Background music
+- Enemy bullets
 - Levels
+- Shields
+- Bonus/special ship
 - vely speedup for enemies based on enemiesLeft;
-- Code cleanup - Variable name consistency
+- Code cleanup - Variable name consistency, unrolling loops, additional code comments
+
+## v0.4 - 26/06/2020
+### Added
+- Sound (player shot, enemy destroyed)
+- Colour (player ship)
+- Enemy/Player collision detection
+- Title screen
+- Game Over screen
 
 ## v0.3 - 25/06/2020
 ### Added
