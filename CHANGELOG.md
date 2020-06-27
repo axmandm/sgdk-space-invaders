@@ -3,18 +3,24 @@
 ## [Unreleased]
 
 ## Known issues
-- Game runs slowly - 20-30fps
-- Enemy generation loop - is there a need to define them all separately?
+- Game runs slowly with animation - 20-30fps
+- Game is extremely difficult!
 
 ## Todo
 - Additional sounds
-- Background music
 - Enemy bullets
 - Levels
 - Shields
 - Bonus/special ship
-- vely speedup for enemies based on enemiesLeft;
 - Code cleanup - Variable name consistency, unrolling loops, additional code comments
+
+## v0.5 - 27/06/2020
+### Added
+- Background music
+- Additional code comments
+- vely speedup for enemies based on enemiesLeft;
+### Changed
+- Enemy generation loop, so that all enemies are contained within single entity
 
 ## v0.4 - 26/06/2020
 ### Added
