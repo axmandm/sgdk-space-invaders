@@ -3,8 +3,8 @@
 
 #define ENEMIES 55
 #define MAX_BULLETS	3
-#define LEFT_EDGE 0
-#define RIGHT_EDGE 320
+#define LEFT_EDGE 70
+#define RIGHT_EDGE 250
 
 //Variables needed throughout the program
 int enemiesLeft = 0; //Number of enemies remaining
@@ -13,9 +13,11 @@ int i; //Used for loops
 int score = 0; //Initial score when starting the game
 int hi_score = 0; //Hi-Score, initially 0, but then increased when score > hi-score
 int movespeed = 1; //Initial movement speed of the enemies
+int tick = 0; //Used to handle game speed - ticks counted in the gameCycle loop.
+int spritetick = 0; //Used to hide the bullet_top_screen sprite.
 
 //Head up display - populated fully in updateScoreDisplay
-char hud_string_line_1[40] = "            SCORE<1>  HI-SCORE";
+char hud_string_line_1[40] = "SCORE<1>  HI-SCORE";
 char hud_score[40] = "";
 char hud_hi_score[40] = "";
 
@@ -26,23 +28,17 @@ typedef enum{
 }GAME_DIRECTION;
 int dir=RIGHT;
 
-//Variable to track if the enemy sprites should drop or not
-bool drop = FALSE;
-
 //Variable to track if the player has shot a bullet
 bool player_bullet_shot = FALSE;
 
 //Variable to track if the game is started
 bool game_running  = FALSE;
 
-//Variables to track the different music files
-bool music_1_playing = FALSE;
-bool music_2_playing = FALSE;
-bool music_3_playing = FALSE;
-bool music_4_playing = FALSE;
-bool music_5_playing = FALSE;
-bool music_6_playing = FALSE;
-bool music_7_playing = FALSE;
+//Function to draw text in the center of the screen, creates a variable for the vertical position of the text
+int v_pos;
+void centeredText(char s[], int v_pos){
+	VDP_drawText(s, 20 - strlen(s)/2 ,v_pos);
+}
 
 //Handle the scoreboard
 void updateScoreDisplay(){
@@ -54,9 +50,9 @@ void updateScoreDisplay(){
 		sprintf(hud_hi_score,"%d",hi_score);
     VDP_clearText(0,0,40);
 		VDP_clearText(0,1,40);
-    VDP_drawText(hud_string_line_1,0,0);
-		VDP_drawText(hud_score,12,1);
-		VDP_drawText(hud_hi_score,22,1);
+    centeredText(hud_string_line_1, 0);
+		VDP_drawText(hud_score,11,1);
+		VDP_drawText(hud_hi_score,21,1);
 }
 
 //Array for sprites
@@ -78,10 +74,22 @@ typedef struct
 Entity player = {0, 0, 16, 8, 0, 0, 0, 0, 0, "PLAYER"};
 Entity bullets[MAX_BULLETS];
 Entity enemies[ENEMIES];
+Entity bullet_top_screen = {0, 0, 0, 0, 0, 0, 0, 0, 0, "BULLET_T"};
+Entity exploded_enemy = {0, 0, 0, 0, 0, 0, 0, 0, 0, "EXP_E"};
+
+//Sprites for title screen
+Sprite* mo; //Mothership
+Sprite* se; //Small enemy
+Sprite* me; //Medium enemy
+Sprite* le; //Large enemy
 
 //Define sound effects
 #define PLAYER_BULLET_SFX       65
 #define ALIEN_DESTROYED_SFX     66
+#define MUSIC_NOTE_1_SFX        67
+#define MUSIC_NOTE_2_SFX        68
+#define MUSIC_NOTE_3_SFX        69
+#define MUSIC_NOTE_4_SFX        70
 
 //Function to kill a sprite
 void killEntity(Entity* e)
@@ -113,14 +121,14 @@ void shootBullet()
       	b->y = player.y;
 
       	reviveEntity(b);
-      	b->vely = -3;
+      	b->vely = -4;
 
       	SPR_setPosition(b->sprite,b->x,b->y);
       	bulletsOnScreen++;
 				player_bullet_shot = TRUE;
 
         //Play the shot sound effect
-        XGM_startPlayPCM(PLAYER_BULLET_SFX, 1, SOUND_PCM_CH2);
+        XGM_startPlayPCM(PLAYER_BULLET_SFX, 1, SOUND_PCM_CH3);
       	break;
     	}
   	}
@@ -138,11 +146,14 @@ void positionBullets()
     if(b->health > 0)
 		{
 			b->y += b->vely;
-			if(b->y + b->h < 0)
+			if(b->y + b->h < 24)
 			{
     		killEntity(b);
     		bulletsOnScreen--;
 				player_bullet_shot = FALSE;
+        SPR_setVisibility(bullet_top_screen.sprite,VISIBLE);
+        SPR_setPosition(bullet_top_screen.sprite,b->x,16);
+        spritetick = 0;
 			} else {
 				SPR_setPosition(b->sprite,b->x,b->y);
 			}
@@ -157,12 +168,19 @@ void doActionJoy(u8 numjoy, u16 value)
   {
     if (value & BUTTON_START && game_running == FALSE)
     {
+      //Game is about to start - release the title screen sprites, and set the mothership off screen
+      SPR_releaseSprite (se);
+      SPR_releaseSprite (me);
+      SPR_releaseSprite (le);
+      SPR_setPosition (mo,-32,-32);
+      SPR_update();
+      VDP_waitVSync();
       game_running = TRUE;
     }
 
     if (value & BUTTON_LEFT)
     {
-			if (player.x > 0)
+			if (player.x > LEFT_EDGE)
 			{
 				player.x -= player.velx;
 				SPR_setPosition(player.sprite,player.x,player.y);
@@ -171,7 +189,7 @@ void doActionJoy(u8 numjoy, u16 value)
 
     if (value & BUTTON_RIGHT)
     {
-			if (player.x < 304)
+			if (player.x+player.w < RIGHT_EDGE)
 			{
 				player.x += player.velx;
 				SPR_setPosition(player.sprite,player.x,player.y);
@@ -185,12 +203,6 @@ void doActionJoy(u8 numjoy, u16 value)
   }
 }
 
-//Function to draw text in the center of the screen, creates a variable for the vertical position of the text
-int v_pos;
-void centeredText(char s[], int v_pos){
-	VDP_drawText(s, 20 - strlen(s)/2 ,v_pos);
-}
-
 //Function to handle the game over event
 void gameOver()
 {
@@ -198,7 +210,6 @@ void gameOver()
   centeredText(msg_game_over, 8);
   waitMs(5000);
   game_running = FALSE;
-  music_1_playing = FALSE;
   enemiesLeft = 55;
   score = 0;
   movespeed = 1;
@@ -212,10 +223,10 @@ void startScreen()
   char msg_start_1[5] = "PLAY\0";
   char msg_start_2[15] = "SPACE INVADERS\0";
   char msg_start_3[22] = "*SCORE ADVANCE TABLE*\0";
-  char msg_start_4[11] = "=? MYSTERY\0";
-  char msg_start_5[11] = "=30 POINTS\0";
-  char msg_start_6[11] = "=20 POINTS\0";
-  char msg_start_7[11] = "=10 POINTS\0";
+  char msg_start_4[12] = " =? MYSTERY\0";
+  char msg_start_5[12] = " =30 POINTS\0";
+  char msg_start_6[12] = " =20 POINTS\0";
+  char msg_start_7[12] = " =10 POINTS\0";
   char msg_start_8[11] = "PUSH START\0";
 
   //Write title screen text
@@ -226,6 +237,13 @@ void startScreen()
   centeredText(msg_start_5, 16);
   centeredText(msg_start_6, 18);
   centeredText(msg_start_7, 20);
+
+  //Draw the invaders
+  mo = SPR_addSprite(&mothership,106,112,TILE_ATTR(PAL1,0,FALSE,FALSE));
+  se = SPR_addSprite(&small_enemy,112,128,TILE_ATTR(PAL2,0,FALSE,FALSE));
+  me = SPR_addSprite(&medium_enemy,111,144,TILE_ATTR(PAL2,0,FALSE,FALSE));
+  le = SPR_addSprite(&large_enemy,110,160,TILE_ATTR(PAL2,0,FALSE,FALSE));
+  SPR_update();
 
   //Loop the "Press Start" flashing message, while waiting for the player to press it
   i = 0;
@@ -249,25 +267,47 @@ void startScreen()
   VDP_clearTextArea(0,6,40,20);
 }
 
-//Function to check if the edge has been hit
+//Function to check if the edge has been hit -if so, move the enemies appropriately
 void edgeHit()
 {
+  //Loop through all the enemies
   for (i = 0; i < ENEMIES; i++)
 	{
 		Entity* e = &enemies[i];
-		if( (e->x+e->w) > RIGHT_EDGE || e->x < LEFT_EDGE)
-		{
-			if(e->health > 0)
-			{
-				dir=!dir;
-				drop = TRUE;
-        break; //We don't want the drop to repeat for all of the enemies that hit the edge - only the first
+    //If the enemy is alive then loop
+    if(e->health > 0)
+    {
+      //If the enemy has hit the edge then loop
+      if( (e->x+e->w) > RIGHT_EDGE || e->x < LEFT_EDGE)
+      {
+        //Set the new position for all of the enemies at once
+        int j;
+        for (j = 0; j < ENEMIES; j++)
+        {
+          Entity* e = &enemies[j];
+
+          //Move the enemy down screen
+          e->y = e->y +4;
+
+          //If we are going left, go left, otherwise, go right
+          if (dir == LEFT)
+    			{
+            e->velx = 1;
+    			} else {
+            e->velx = -1;
+    			}
+        }
+        //Reverse the direction
+        dir=!dir;
+
+        //Exit the function
+        return;
 			}
 		}
-	}
+  }
 }
 
-//Function to animate the enemies
+//Function to animate enemies
 void animateEnemies()
 {
     for (i = 0; i < ENEMIES; i++)
@@ -277,7 +317,7 @@ void animateEnemies()
     }
 }
 
-//Function to move enemies around the screen - we work large to small, because of the screen edge
+//Function to move enemies horizontally
 void positionEnemies()
 {
   for(i = 0; i < ENEMIES; i++)
@@ -285,26 +325,10 @@ void positionEnemies()
 		Entity* e = &enemies[i];
 		if(e->health > 0)
 		{
-      if (drop == TRUE)
-      {
-				e->y = e->y +4;
-			}
-			if (dir == LEFT)
-			{
-        e->velx = -1 * movespeed;
-			} else {
-				e->velx = 1 * movespeed;
-			}
-			e->x += e->velx;
-      if (e->y > 185)
-      {
-        gameOver();
-      } else {
-        SPR_setPosition(e->sprite,e->x,e->y);
-      }
+      e->x += e->velx;
+      SPR_setPosition(e->sprite,e->x,e->y);
 		}
 	}
-	drop = FALSE;
 }
 
 //Function to determine if an object has collided - full credit to ohsat for this :)
@@ -343,8 +367,12 @@ void handleCollisions(){
 						player_bullet_shot = FALSE;
 
             //Play the alien destroyed sound effect
-            XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH3);
-    				break;
+            XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH4);
+
+            //Show an exploded_enemy sprite in it's place
+            SPR_setVisibility(exploded_enemy.sprite,VISIBLE);
+            SPR_setPosition(exploded_enemy.sprite,e->x,e->y);
+            spritetick = 0;
     			}
 				}
       }
@@ -352,47 +380,200 @@ void handleCollisions(){
 	}
 }
 
-//Play the different music files, depending on how many enemies are alive
+//Play the different music files on a loop
+int music_note = 1;
 void musicCycles()
 {
-      if (enemiesLeft == 55 && music_1_playing == FALSE)
-      {
-        XGM_startPlay(music_1);
-        music_1_playing = TRUE;
-      }
-      if (enemiesLeft == 40 && music_2_playing == FALSE)
-      {
-        XGM_startPlay(music_2);
-        music_2_playing = TRUE;
-      }
-      if (enemiesLeft == 32 && music_3_playing == FALSE)
-      {
-        movespeed ++;
-        XGM_startPlay(music_3);
-        music_3_playing = TRUE;
-      }
-      if (enemiesLeft == 24 && music_4_playing == FALSE)
-      {
-        XGM_startPlay(music_4);
-        music_4_playing = TRUE;
-      }
-      if (enemiesLeft == 16 && music_5_playing == FALSE)
-      {
-        movespeed ++;
-        XGM_startPlay(music_5);
-        music_5_playing = TRUE;
-      }
-      if (enemiesLeft == 12 && music_6_playing == FALSE)
-      {
-        XGM_startPlay(music_6);
-        music_6_playing = TRUE;
-      }
-      if (enemiesLeft == 8 && music_7_playing == FALSE)
-      {
-        movespeed ++;
-        XGM_startPlay(music_7);
-        music_7_playing = TRUE;
-      }
+  if (music_note == 1){
+    XGM_startPlayPCM(MUSIC_NOTE_1_SFX, 1, SOUND_PCM_CH1);
+    music_note++;
+  } else if (music_note == 2){
+    XGM_startPlayPCM(MUSIC_NOTE_2_SFX, 1, SOUND_PCM_CH2);
+    music_note++;
+  } else if (music_note == 3){
+    XGM_startPlayPCM(MUSIC_NOTE_3_SFX, 1, SOUND_PCM_CH1);
+    music_note++;
+  } else if (music_note == 4){
+    XGM_startPlayPCM(MUSIC_NOTE_4_SFX, 1, SOUND_PCM_CH2);
+    music_note = 1;
+  }
+}
+
+//The main timing loop for enemy movement, soundtrack playing, animation
+void timingLoop()
+{
+  if (enemiesLeft <= 1){
+    if (tick == 5){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 2){
+    if (tick == 7){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 3){
+    if (tick == 9){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 4){
+    if (tick == 11){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 5){
+    if (tick == 12){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 6){
+    if (tick == 13){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 7){
+    if (tick == 14){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 8){
+    if (tick == 16){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 10){
+    if (tick == 19){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 13){
+    if (tick == 21){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 17){
+    if (tick == 24){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 22){
+    if (tick == 28){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 28){
+    if (tick == 34){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 36){
+    if (tick == 39){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 43){
+    if (tick == 46){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft < 50){
+    if (tick == 52){
+      musicCycles();
+      animateEnemies();
+      edgeHit();
+      positionEnemies();
+      tick = 0;
+    }
+  }
+  if (enemiesLeft <= 55){
+    if (tick == 60){
+      musicCycles();
+      animateEnemies();
+      positionEnemies();
+      edgeHit();
+      tick = 0;
+    }
+  }
+  tick++;
+}
+
+//Debugging function
+char tick_str[8];
+char enemies_str[8];
+char movespeed_str[8];
+void debugDisplay()
+{
+  sprintf(tick_str,"%d",tick);
+  sprintf(enemies_str,"%d",enemiesLeft);
+  sprintf(movespeed_str,"%d",movespeed);
+  VDP_clearText(0,22,8);
+  VDP_drawText(tick_str,0,22);
+  VDP_clearText(0,23,8);
+  VDP_drawText(enemies_str,0,23);
+  VDP_clearText(0,24,8);
+  VDP_drawText(movespeed_str,0,24);
+  VDP_showFPS(TRUE);
 }
 
 int main()
@@ -401,24 +582,39 @@ int main()
   //Draw the initial scoreboard
 	updateScoreDisplay();
 
+  //Initialise the sprite engine
+  SPR_init();
+
+  //Set the palette 1 colours from the player sprite
+  VDP_setPalette(PAL1, player_ship.palette->data);
+  VDP_setPalette(PAL2, small_enemy.palette->data);
+
   //Check to see if the game is running - if not, show the start screen
   if (game_running == FALSE)
   {
     startScreen();
   }
 
-	//Initialise the sprite engine
-  SPR_init();
+  /*Draw the background image*/
+  VDP_drawImageEx(BG_B, &background, TILE_ATTR_FULL(PAL1, 0, 0, 0, 1), 0, 0, 1, DMA);
+
+  //Setup the sound effects and music
+  XGM_setPCM(PLAYER_BULLET_SFX, player_bullet_sfx, sizeof(player_bullet_sfx));
+  XGM_setPCM(ALIEN_DESTROYED_SFX, alien_destroyed_sfx, sizeof(alien_destroyed_sfx));
+  XGM_setPCM(MUSIC_NOTE_1_SFX, music_note_1, sizeof(music_note_1));
+  XGM_setPCM(MUSIC_NOTE_2_SFX, music_note_2, sizeof(music_note_2));
+  XGM_setPCM(MUSIC_NOTE_3_SFX, music_note_3, sizeof(music_note_3));
+  XGM_setPCM(MUSIC_NOTE_4_SFX, music_note_4, sizeof(music_note_4));
 
   //Add the player
   player.x = 152;
   player.y = 192;
   player.health = 1;
 	player.velx = 2;
+  player.w = 16;
   player.sprite = SPR_addSprite(&player_ship,player.x,player.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
-  SPR_update();
 
-	//Create all bullet sprites
+  //Create all bullet sprites
 	Entity* b = bullets;
 	for(i = 0; i < MAX_BULLETS; i++){
     b->x = 0;
@@ -430,13 +626,19 @@ int main()
     b++;
 	}
 
+  //Bullet "hole" at top of screen when you miss
+  bullet_top_screen.x = -16;
+  bullet_top_screen.y = -16;
+  bullet_top_screen.health = 0;
+  bullet_top_screen.sprite = SPR_addSprite(&bullet_top,bullet_top_screen.x,bullet_top_screen.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
+
   //Create all enemy sprites
   Entity* e = enemies;
   for(i = 0; i < ENEMIES; i++)
   {
     if(i <=10){
       e->x = 72 + i*16;
-      e->y = 32;
+      e->y = 56;
       e->w = 8;
       e->h = 8;
       e->velx = 1;
@@ -448,7 +650,7 @@ int main()
       e++;
 		} else if (i<=21){
       e->x = 70 + (i-11)*16;
-	    e->y = 48;
+	    e->y = 72;
 	    e->w = 11;
 	    e->h = 8;
 	    e->velx = 1;
@@ -460,7 +662,7 @@ int main()
 			e++;
 		} else if (i<=32){
       e->x = 70 + (i-22)*16;
-	    e->y = 64;
+	    e->y = 88;
 	    e->w = 11;
 	    e->h = 8;
 	    e->velx = 1;
@@ -472,7 +674,7 @@ int main()
 			e++;
     } else if (i<=43){
       e->x = 70 + (i-33)*16;
-	    e->y = 80;
+	    e->y = 104;
 	    e->w = 12;
 	    e->h = 8;
 	    e->velx = 1;
@@ -484,7 +686,7 @@ int main()
 			e++;
     } else if (i<=55){
       e->x = 70 + (i-44)*16;
-	    e->y = 96;
+	    e->y = 120;
 	    e->w = 12;
 	    e->h = 8;
 	    e->velx = 1;
@@ -497,27 +699,16 @@ int main()
     }
   }
 
-  //Set the palette 1 colours from the player sprite
-  VDP_setPalette(PAL1, player_ship.palette->data);
-  VDP_setPalette(PAL2, small_enemy.palette->data);
-
-  //Setup the sound effects and music
-  XGM_setPCM(PLAYER_BULLET_SFX, player_bullet_sfx, sizeof(player_bullet_sfx));
-  XGM_setPCM(ALIEN_DESTROYED_SFX, alien_destroyed_sfx, sizeof(alien_destroyed_sfx));
+  //Explosion sprite, when you hit an enemy
+  exploded_enemy.x = -16;
+  exploded_enemy.y = -16;
+  exploded_enemy.health = 0;
+  exploded_enemy.sprite = SPR_addSprite(&alien_exploding,exploded_enemy.x,exploded_enemy.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
 
   while(game_running == TRUE)
   {
 		//Watch for joypad inputs (direction controls)
     doActionJoy(JOY_1, JOY_readJoypad(JOY_1));
-
-    //Play the soundtrack
-    musicCycles();
-
-		//Have the enemies reached the edge?
-		edgeHit();
-
-		//Update enemy positions
-		positionEnemies();
 
 		//Update the bullet positions
 		positionBullets();
@@ -525,17 +716,28 @@ int main()
 		//Detect if items have collided
 		handleCollisions();
 
-		//Update all the sprites on screen
+    //Main game timing loop
+    timingLoop();
+
+    //Increment the sprite tick counter, to know when to hide the bullet_top_screen sprite.
+    spritetick++;
+
+    if (spritetick == 20)
+    {
+      bullet_top_screen.health = 0;
+    	SPR_setVisibility(bullet_top_screen.sprite,HIDDEN);
+      exploded_enemy.health = 0;
+      SPR_setVisibility(exploded_enemy.sprite,HIDDEN);
+    }
+
+    //Update all the sprites on screen
 		SPR_update();
 
-		//Wait for vsync to stop flickering
+		//Debugging - show FPS on screen, ticks etc
+		debugDisplay();
+
+    //Wait for vsync to stop flickering
     VDP_waitVSync();
-
-		//Animate the enemies
-		//animateEnemies();
-
-		//Debugging - show FPS on screen
-		VDP_showFPS(TRUE);
   }
   return 0;
 }

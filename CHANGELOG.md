@@ -3,16 +3,28 @@
 ## [Unreleased]
 
 ## Known issues
-- Game runs slowly with animation - 20-30fps
-- Game is extremely difficult!
+- Sprite scrolling is not smooth - its locked in step with the music, when it should run independently.
 
 ## Todo
-- Additional sounds
+- Additional sounds (mothership)
 - Enemy bullets
 - Levels
 - Shields
-- Bonus/special ship
+- Bonus/special ship loop
 - Code cleanup - Variable name consistency, unrolling loops, additional code comments
+- Enemy speedup
+- Smooth scrolling
+
+## v0.6 - 28/06/2020
+### Added
+- Mothership sprite (Bonus/special ship)
+- Additional sprites, for enemy death and a "miss" at the top of the screen
+### Removed
+- vely speedup for enemies based on enemiesLeft - this did not work very well, needs to be rewritten for smooth sprite positioning.
+### Changed
+- Improved title/start screen, with ship sprites
+- Background music - the ticks for enemy movement and animation could not be lined up easily with a playing XGM, so reverted to sfx for the music "beats".
+- Changed sfx to stereo from mono
 
 ## v0.5 - 27/06/2020
 ### Added
