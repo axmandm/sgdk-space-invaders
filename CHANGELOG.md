@@ -4,19 +4,21 @@
 
 ## Known issues
 - Sprite scrolling is not smooth - its locked in step with the music, when it should run independently.
+- Mothership destroy needs a sprite.
+- Mothership sound effect is poor, and overlaps the destuction sound.
 
 ## Todo
-- Additional sounds (mothership)
 - Enemy bullets
 - Levels
 - Shields
-- Bonus/special ship loop
 - Code cleanup - Variable name consistency, unrolling loops, additional code comments
 - Enemy speedup
 - Smooth scrolling
 
 ## v0.6 - 28/06/2020
 ### Added
+- Bonus/special ship loop
+- Additional sounds (mothership)
 - Mothership sprite (Bonus/special ship)
 - Additional sprites, for enemy death and a "miss" at the top of the screen
 ### Removed

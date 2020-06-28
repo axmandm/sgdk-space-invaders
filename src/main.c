@@ -15,6 +15,9 @@ int hi_score = 0; //Hi-Score, initially 0, but then increased when score > hi-sc
 int movespeed = 1; //Initial movement speed of the enemies
 int tick = 0; //Used to handle game speed - ticks counted in the gameCycle loop.
 int spritetick = 0; //Used to hide the bullet_top_screen sprite.
+int mothershiptick = 0; //Used to trigger a saucer event;
+int enemy_explode_tick = 0; //Used to count steps to show the enemy exploded sprite;
+
 
 //Head up display - populated fully in updateScoreDisplay
 char hud_string_line_1[40] = "SCORE<1>  HI-SCORE";
@@ -32,7 +35,16 @@ int dir=RIGHT;
 bool player_bullet_shot = FALSE;
 
 //Variable to track if the game is started
-bool game_running  = FALSE;
+bool game_running = FALSE;
+
+//Variable to track if the mothership is on screen
+bool mothership_shown = FALSE;
+
+//Variable to track if the top bullet 'miss' is on screen
+bool bullet_top_shown = FALSE;
+
+//Variable to track if the exploded enemy is on screen
+bool exploded_enemy_shown = FALSE;
 
 //Function to draw text in the center of the screen, creates a variable for the vertical position of the text
 int v_pos;
@@ -76,8 +88,9 @@ Entity bullets[MAX_BULLETS];
 Entity enemies[ENEMIES];
 Entity bullet_top_screen = {0, 0, 0, 0, 0, 0, 0, 0, 0, "BULLET_T"};
 Entity exploded_enemy = {0, 0, 0, 0, 0, 0, 0, 0, 0, "EXP_E"};
+Entity mothership_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, "MOTHER"};
 
-//Sprites for title screen
+//Sprites for title screen - handled differently to the entities above.
 Sprite* mo; //Mothership
 Sprite* se; //Small enemy
 Sprite* me; //Medium enemy
@@ -90,6 +103,7 @@ Sprite* le; //Large enemy
 #define MUSIC_NOTE_2_SFX        68
 #define MUSIC_NOTE_3_SFX        69
 #define MUSIC_NOTE_4_SFX        70
+#define MOTHERSHIP_SFX          71
 
 //Function to kill a sprite
 void killEntity(Entity* e)
@@ -117,7 +131,7 @@ void shootBullet()
     	b = &bullets[i];
       if(b->health == 0)
 			{
-				b->x = player.x+4;
+				b->x = player.x+6;
       	b->y = player.y;
 
       	reviveEntity(b);
@@ -151,15 +165,21 @@ void positionBullets()
     		killEntity(b);
     		bulletsOnScreen--;
 				player_bullet_shot = FALSE;
-        SPR_setVisibility(bullet_top_screen.sprite,VISIBLE);
-        SPR_setPosition(bullet_top_screen.sprite,b->x,16);
-        spritetick = 0;
+        if (bullet_top_shown == FALSE)
+        {
+          spritetick = 0;
+          bullet_top_shown = TRUE;
+          SPR_setVisibility(bullet_top_screen.sprite,VISIBLE);
+          SPR_setPosition(bullet_top_screen.sprite,b->x - 4,16);
+        }
 			} else {
 				SPR_setPosition(b->sprite,b->x,b->y);
 			}
     }
 	}
 }
+
+
 
 //Function to handle joypad input in game
 void doActionJoy(u8 numjoy, u16 value)
@@ -348,6 +368,7 @@ void handleCollisions(){
     b = &bullets[i];
     if(b->health > 0)
 		{
+      //Loop through the enemies - did we hit one?
 			for(j = 0; j < ENEMIES; j++)
 			{
       	e = &enemies[j];
@@ -372,28 +393,93 @@ void handleCollisions(){
             //Show an exploded_enemy sprite in it's place
             SPR_setVisibility(exploded_enemy.sprite,VISIBLE);
             SPR_setPosition(exploded_enemy.sprite,e->x,e->y);
-            spritetick = 0;
+            exploded_enemy_shown = TRUE;
+            enemy_explode_tick = 0;
     			}
 				}
       }
+      e = &mothership_sprite;
+        if(collideEntities( b, e ))
+        {
+          killEntity(e);
+          killEntity(b);
+          bulletsOnScreen--;
+          //Play the alien destroyed sound effect
+          XGM_stopPlayPCM(SOUND_PCM_CH1);
+          XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH1);
+          player_bullet_shot = FALSE;
+        }
 		}
 	}
+}
+
+void bulletTopHide()
+{
+  if (bullet_top_shown == TRUE && spritetick == 20) {
+    bullet_top_screen.health = 0;
+    SPR_setVisibility(bullet_top_screen.sprite,HIDDEN);
+    spritetick = 0;
+    bullet_top_shown = FALSE;
+  }
+  spritetick++;
+}
+
+void explodeEnemyHide()
+{
+  if (exploded_enemy_shown == TRUE && enemy_explode_tick == 20) {
+    exploded_enemy.health = 0;
+    SPR_setVisibility(exploded_enemy.sprite,HIDDEN);
+    enemy_explode_tick = 0;
+    exploded_enemy_shown = FALSE;
+  }
+  enemy_explode_tick++;
+}
+
+void showMothership()
+{
+  Entity* e;
+  if (mothershiptick==600 && mothership_shown == FALSE)
+  {
+    e = &mothership_sprite;
+    mothership_sprite.vely = 1;
+    mothership_sprite.health = 1;
+    reviveEntity(e);
+    mothership_shown = TRUE;
+  }
+  if (mothership_shown == TRUE)
+  {
+    if (XGM_isPlayingPCM(SOUND_PCM_CH1_MSK) == FALSE){
+        XGM_startPlayPCM(MOTHERSHIP_SFX, 1, SOUND_PCM_CH1);
+    }
+    mothership_sprite.x += mothership_sprite.vely;
+    SPR_setPosition(mothership_sprite.sprite,mothership_sprite.x,mothership_sprite.y);
+  }
+  if (mothership_shown == TRUE && mothership_sprite.x + mothership_sprite.w > RIGHT_EDGE + 100)
+  {
+    mothership_sprite.vely = 0;
+    mothership_sprite.x = -32;
+    mothership_sprite.health = 0;
+    SPR_setPosition(mothership_sprite.sprite,mothership_sprite.x,mothership_sprite.y);
+    mothership_shown = FALSE;
+    mothershiptick = 0;
+  }
+  mothershiptick++;
 }
 
 //Play the different music files on a loop
 int music_note = 1;
 void musicCycles()
 {
-  if (music_note == 1){
+  if (music_note == 1 && XGM_isPlayingPCM(SOUND_PCM_CH1_MSK) == FALSE){
     XGM_startPlayPCM(MUSIC_NOTE_1_SFX, 1, SOUND_PCM_CH1);
     music_note++;
-  } else if (music_note == 2){
+  } else if (music_note == 2 && XGM_isPlayingPCM(SOUND_PCM_CH1_MSK) == FALSE){
     XGM_startPlayPCM(MUSIC_NOTE_2_SFX, 1, SOUND_PCM_CH2);
     music_note++;
-  } else if (music_note == 3){
+  } else if (music_note == 3 && XGM_isPlayingPCM(SOUND_PCM_CH1_MSK) == FALSE){
     XGM_startPlayPCM(MUSIC_NOTE_3_SFX, 1, SOUND_PCM_CH1);
     music_note++;
-  } else if (music_note == 4){
+  } else if (music_note == 4 && XGM_isPlayingPCM(SOUND_PCM_CH1_MSK) == FALSE){
     XGM_startPlayPCM(MUSIC_NOTE_4_SFX, 1, SOUND_PCM_CH2);
     music_note = 1;
   }
@@ -605,6 +691,7 @@ int main()
   XGM_setPCM(MUSIC_NOTE_2_SFX, music_note_2, sizeof(music_note_2));
   XGM_setPCM(MUSIC_NOTE_3_SFX, music_note_3, sizeof(music_note_3));
   XGM_setPCM(MUSIC_NOTE_4_SFX, music_note_4, sizeof(music_note_4));
+  XGM_setPCM(MOTHERSHIP_SFX, mothership_sfx, sizeof(mothership_sfx));
 
   //Add the player
   player.x = 152;
@@ -619,8 +706,8 @@ int main()
 	for(i = 0; i < MAX_BULLETS; i++){
     b->x = 0;
     b->y = -10;
-    b->w = 8;
-    b->h = 8;
+    b->w = 1;
+    b->h = 4;
     b->sprite = SPR_addSprite(&player_bullet,bullets[0].x,bullets[0].y,TILE_ATTR(PAL1,0,FALSE,FALSE));
     sprintf(b->name, "Bu%d",i);
     b++;
@@ -631,6 +718,14 @@ int main()
   bullet_top_screen.y = -16;
   bullet_top_screen.health = 0;
   bullet_top_screen.sprite = SPR_addSprite(&bullet_top,bullet_top_screen.x,bullet_top_screen.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
+
+  //Mothership
+  mothership_sprite.x = -32;
+  mothership_sprite.y = 24;
+  mothership_sprite.w = 19;
+  mothership_sprite.health = 0;
+  mothership_sprite.velx = 2;
+  mothership_sprite.sprite = SPR_addSprite(&mothership,mothership_sprite.x,mothership_sprite.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
 
   //Create all enemy sprites
   Entity* e = enemies;
@@ -719,16 +814,14 @@ int main()
     //Main game timing loop
     timingLoop();
 
-    //Increment the sprite tick counter, to know when to hide the bullet_top_screen sprite.
-    spritetick++;
+    //Check to see if we should remove the missed bullet sprite
+    bulletTopHide();
 
-    if (spritetick == 20)
-    {
-      bullet_top_screen.health = 0;
-    	SPR_setVisibility(bullet_top_screen.sprite,HIDDEN);
-      exploded_enemy.health = 0;
-      SPR_setVisibility(exploded_enemy.sprite,HIDDEN);
-    }
+    //Check to see if we should remove the exploded enemy sprite
+    explodeEnemyHide();
+
+    //Check to see if we should show the mothership
+    showMothership();
 
     //Update all the sprites on screen
 		SPR_update();

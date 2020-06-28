@@ -9,6 +9,7 @@ SPRITE bullet_top "sprites/bullet_top.png" 1 1
 SPRITE alien_exploding "sprites/alien_exploding.png" 2 1
 WAV player_bullet_sfx "sfx/player_bullet.wav" XGM
 WAV alien_destroyed_sfx "sfx/alien_destroyed.wav" XGM
+WAV mothership_sfx "sfx/mothership.wav" XGM
 WAV music_note_1 "sfx/music_note_1.wav" XGM
 WAV music_note_2 "sfx/music_note_2.wav" XGM
 WAV music_note_3 "sfx/music_note_3.wav" XGM
