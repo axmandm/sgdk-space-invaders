@@ -3,17 +3,23 @@
 ## [Unreleased]
 
 ## Known issues
+- You cannot die - the code for aliens too low, and alien shots not yet implemented
 - Sprite scrolling is not smooth - its locked in step with the music, when it should run independently.
 - Mothership destroy needs a sprite.
-- Mothership sound effect is poor, and overlaps the destuction sound.
+- Mothership sound effect is poor, and overlaps the destruction sound (i.e. keeps playing)
 
 ## Todo
-- Enemy bullets
-- Levels
-- Shields
-- Code cleanup - Variable name consistency, unrolling loops, additional code comments
+- Enemy bullets - firing, collision detection, sfx
+- Shield destruction behaviour
+- Code clean up - Variable name consistency, unrolling loops, additional code comments
+- Smooth scrolling (is this even possible/desirable?)
+
+## v0.7 - 30/06/2020
+### Added
+- Enemy bullet sprites
+- Shield sprites
+- Levels (simple, just increments the y by 4 pixels)
 - Enemy speedup
-- Smooth scrolling
 
 ## v0.6 - 28/06/2020
 ### Added
