@@ -3,9 +3,9 @@
 ## [Unreleased]
 
 ## Known issues
+- Issues with timing loop and sprite animation (it looks different from the original game)
 - You cannot die - the code for aliens too low, and alien shots not yet implemented
 - Sprite scrolling is not smooth - its locked in step with the music, when it should run independently.
-- Mothership destroy needs a sprite.
 - Mothership sound effect is poor, and overlaps the destruction sound (i.e. keeps playing)
 
 ## Todo
@@ -13,6 +13,12 @@
 - Shield destruction behaviour
 - Code clean up - Variable name consistency, unrolling loops, additional code comments
 - Smooth scrolling (is this even possible/desirable?)
+
+## v0.8 - 01/07/2020
+### Added
+- Mothership destruction sprite
+- Improved sprite animation timing
+- Initial logic for enemy bullets, collision detection with player
 
 ## v0.7 - 30/06/2020
 ### Added
