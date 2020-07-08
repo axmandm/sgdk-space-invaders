@@ -4,15 +4,24 @@
 
 ## Known issues
 - Issues with timing loop and sprite animation (it looks different from the original game)
-- You cannot die - the code for aliens too low, and alien shots not yet implemented
+- You cannot die - the code for aliens too low and alien shots not yet implemented
 - Sprite scrolling is not smooth - its locked in step with the music, when it should run independently.
-- Mothership sound effect is poor, and overlaps the destruction sound (i.e. keeps playing)
 
 ## Todo
-- Enemy bullets - firing, collision detection, sfx
+- Player death on bullet hit and animation
+- Improvements/correction of alien bullet firing column (loop is incorrect)
 - Shield destruction behaviour
 - Code clean up - Variable name consistency, unrolling loops, additional code comments
 - Smooth scrolling (is this even possible/desirable?)
+
+## v0.91 - 08/07/2020
+### Added
+- Enemy bullet firing code, all types of bullets are now fired correctly
+
+## v0.9- 03/07/2020
+### Added
+- Further improved sprite animation timing
+- Mothership sound effects corrected, along with destruction sfx
 
 ## v0.8 - 01/07/2020
 ### Added

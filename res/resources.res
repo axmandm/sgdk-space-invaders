@@ -16,6 +16,7 @@ SPRITE shield "sprites/shield.png" 3 2 BEST 0
 WAV player_bullet_sfx "sfx/player_bullet.wav" XGM
 WAV alien_destroyed_sfx "sfx/alien_destroyed.wav" XGM
 WAV mothership_sfx "sfx/mothership.wav" XGM
+WAV mothership_destroyed_sfx "sfx/mothership_destroyed.wav" XGM
 WAV player_died_sfx "sfx/player_died.wav" XGM
 WAV music_note_1 "sfx/music_note_1.wav" XGM
 WAV music_note_2 "sfx/music_note_2.wav" XGM

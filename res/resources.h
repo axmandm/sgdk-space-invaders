@@ -4,6 +4,7 @@
 extern const u8 player_bullet_sfx[4864];
 extern const u8 alien_destroyed_sfx[4608];
 extern const u8 mothership_sfx[66304];
+extern const u8 mothership_destroyed_sfx[30976];
 extern const u8 player_died_sfx[18688];
 extern const u8 music_note_1[1280];
 extern const u8 music_note_2[1024];

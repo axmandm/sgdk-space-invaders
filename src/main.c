@@ -8,7 +8,7 @@
 #define LEFT_EDGE 70
 #define RIGHT_EDGE 250
 #define TOP_EDGE 24
-#define BOTTOM_EDGE 224
+#define BOTTOM_EDGE 200
 
 //Variables needed throughout the program
 int enemiesLeft = 0; //Number of enemies remaining
@@ -23,7 +23,9 @@ int enemyAnimateTick = 0;
 int spritetick = 0; //Used to hide the bullet_top_screen sprite.
 int mothershiptick = 0; //Used to trigger a saucer event;
 int enemy_explode_tick = 0; //Used to count steps to show the enemy exploded sprite;
-int level = 0;
+int level = 0; //The starting level of the game - used to track enemy vertical position at level start
+int bulletType; //The type of bullet the enemy will shoot
+int shootColumn; //The column of enemies that will shoot
 
 //Head up display - populated fully in updateScoreDisplay
 char hud_string_line_1[40] = "SCORE<1>  HI-SCORE";
@@ -85,6 +87,8 @@ typedef struct
 	int h;
 	int velx;
 	int vely;
+  int row;
+  int column;
 	int health;
   int points;
 	Sprite* sprite;
@@ -92,17 +96,17 @@ typedef struct
 } Entity;
 
 //Define the sprite properties
-Entity player = {0, 0, 16, 8, 0, 0, 0, 0, 0, "PLAYER"};
+Entity player = {0, 0, 16, 8, 0, 0, 0, 0, 0, 0, 0, "PLAYER"};
 Entity player_bullets[MAX_PLAYER_BULLETS];
 Entity enemies[ENEMIES];
 Entity shields[SHIELDS];
-Entity bullet_top_screen =    {0, 0, 0, 0, 0, 0, 0, 0, 0, "BULLET_T"};
-Entity exploded_enemy =       {0, 0, 0, 0, 0, 0, 0, 0, 0, "EXP_E"};
-Entity mothership_sprite =    {0, 0, 0, 0, 0, 0, 0, 0, 0, "MOTHER"};
-Entity exploded_mothership =  {0, 0, 0, 0, 0, 0, 0, 0, 0, "EXP_M"};
-Entity rolling_bullet_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, "ROLL_B"};
-Entity plunger_bullet_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, "PLUNGE_B"};
-Entity squiggly_bullet_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, "SQUIGG_B"};
+Entity bullet_top_screen =    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "BULLET_T"};
+Entity exploded_enemy =       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "EXP_E"};
+Entity mothership_sprite =    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "MOTHER"};
+Entity exploded_mothership =  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "EXP_M"};
+Entity rolling_bullet_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "ROLL_B"};
+Entity plunger_bullet_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "PLUNGE_B"};
+Entity squiggly_bullet_sprite = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "SQUIGG_B"};
 
 //Sprites for title screen - handled differently to the entities above.
 Sprite* mo; //Mothership
@@ -111,14 +115,15 @@ Sprite* me; //Medium enemy
 Sprite* le; //Large enemy
 
 //Define sound effects
-#define PLAYER_BULLET_SFX       65
-#define ALIEN_DESTROYED_SFX     66
-#define MUSIC_NOTE_1_SFX        67
-#define MUSIC_NOTE_2_SFX        68
-#define MUSIC_NOTE_3_SFX        69
-#define MUSIC_NOTE_4_SFX        70
-#define MOTHERSHIP_SFX          71
-#define PLAYER_DIED_SFX         72
+#define PLAYER_BULLET_SFX         65
+#define ALIEN_DESTROYED_SFX       66
+#define MUSIC_NOTE_1_SFX          67
+#define MUSIC_NOTE_2_SFX          68
+#define MUSIC_NOTE_3_SFX          69
+#define MUSIC_NOTE_4_SFX          70
+#define MOTHERSHIP_SFX            71
+#define PLAYER_DIED_SFX           72
+#define MOTHERSHIP_DESTROYED_SFX  73
 
 //Function to kill a sprite
 void killEntity(Entity* e)
@@ -174,37 +179,62 @@ int RandomNumberGenerator(const int nMin, const int nMax)
 //Function to handle enemy bullets
 void shootEnemyBullet()
 {
-  int bulletType;
   if (enemyBulletsOnScreen < MAX_ENEMY_BULLETS)
   {
-      bulletType = RandomNumberGenerator(1,3);
-      switch (bulletType)
+    shootColumn = RandomNumberGenerator(1,11);
+    //We want to loop through the enemies backwards, soas to 'hit' the bottom row first
+    for (i = ENEMIES; i > 0; i--)
+    {
+      Entity* e = &enemies[i];
+      Entity* eb;
+      if (e->column == shootColumn && e->health == 1)
       {
-        case 1:
-          if (plunger_bullet_sprite.health == 0)
-          {
-            SPR_setPosition(plunger_bullet_sprite.sprite,100,TOP_EDGE);
-            plunger_bullet_sprite.health = 1;
-          }
-        case 2:
-          if (rolling_bullet_sprite.health == 0)
-          {
-            SPR_setPosition(rolling_bullet_sprite.sprite,110,TOP_EDGE);
-            rolling_bullet_sprite.health = 1;
-          }
-        case 3:
-          if (squiggly_bullet_sprite.health == 0)
-          {
-            SPR_setPosition(squiggly_bullet_sprite.sprite,120,TOP_EDGE);
-            squiggly_bullet_sprite.health = 1;
-          }
+        bulletType = RandomNumberGenerator(1,3);
+        switch (bulletType)
+        {
+          case 1:
+            eb = &rolling_bullet_sprite;
+            if (eb->health < 1)
+            {
+              reviveEntity(eb);
+              eb->x = e->x + (e->w/2) - 1;
+              eb->y = e->y + 4;
+              SPR_setPosition(eb->sprite,eb->x,eb->y);
+              enemyBulletsOnScreen++;
+              return;
+            }
+          case 2:
+            eb = &plunger_bullet_sprite;
+            if (eb->health < 1)
+            {
+              reviveEntity(eb);
+              eb->x = e->x + (e->w/2) - 1;
+              eb->y = e->y + 4;
+              SPR_setPosition(eb->sprite,eb->x,eb->y);
+              enemyBulletsOnScreen++;
+              return;
+            }
+          case 3:
+            eb = &squiggly_bullet_sprite;
+            if (eb->health < 1)
+            {
+              reviveEntity(eb);
+              eb->x = e->x + (e->w/2) - 1;
+              eb->y = e->y + 4;
+              SPR_setPosition(eb->sprite,eb->x,eb->y);
+              enemyBulletsOnScreen++;
+              return;
+            }
+        }
       }
+    }
   }
 }
 
 //Function to move bullets on screen
 void positionBullets()
 {
+  //Move the player bullets
 	Entity *b;
 	for(i = 0; i < MAX_PLAYER_BULLETS; i++)
 	{
@@ -232,25 +262,35 @@ void positionBullets()
 	}
 
   //Move the enemy bullets
-  if (plunger_bullet_sprite.y == BOTTOM_EDGE){
-    plunger_bullet_sprite.health = 0;
-  } else {
-    plunger_bullet_sprite.y += 4;
-    SPR_setPosition(plunger_bullet_sprite.sprite,plunger_bullet_sprite.x,plunger_bullet_sprite.y);
+  Entity* eb;
+  eb = &rolling_bullet_sprite;
+  eb->y += 2;
+  SPR_setPosition(eb->sprite,eb->x,eb->y);
+  if (eb->health > 0 && eb->y > BOTTOM_EDGE)
+  {
+    killEntity(eb);
+    eb->y = -16;
+    enemyBulletsOnScreen--;
   }
-
-  if (rolling_bullet_sprite.y == BOTTOM_EDGE){
-    rolling_bullet_sprite.health = 0;
-  } else {
-    rolling_bullet_sprite.y += 4;
-    SPR_setPosition(rolling_bullet_sprite.sprite,rolling_bullet_sprite.x,rolling_bullet_sprite.y);
+  //Move the enemy bullets
+  eb = &plunger_bullet_sprite;
+  eb->y += 2;
+  SPR_setPosition(eb->sprite,eb->x,eb->y);
+  if (eb->health > 0 && eb->y > BOTTOM_EDGE)
+  {
+    killEntity(eb);
+    eb->y = -16;
+    enemyBulletsOnScreen--;
   }
-
-  if (squiggly_bullet_sprite.y == BOTTOM_EDGE){
-    squiggly_bullet_sprite.health = 0;
-  } else {
-    squiggly_bullet_sprite.y += 4;
-    SPR_setPosition(squiggly_bullet_sprite.sprite,squiggly_bullet_sprite.x,squiggly_bullet_sprite.y);
+  //Move the enemy bullets
+  eb = &squiggly_bullet_sprite;
+  eb->y += 2;
+  SPR_setPosition(eb->sprite,eb->x,eb->y);
+  if (eb->health > 0 && eb->y > BOTTOM_EDGE)
+  {
+    killEntity(eb);
+    eb->y = -16;
+    enemyBulletsOnScreen--;
   }
 }
 
@@ -477,9 +517,9 @@ void handleCollisions(){
         killEntity(e);
         killEntity(b);
         bulletsOnScreen--;
-        //Play the alien destroyed sound effect
+        //Play the mothership destroyed sound effect
         SND_stopPlayPCM_XGM(SOUND_PCM_CH1);
-        XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH3);
+        XGM_startPlayPCM(MOTHERSHIP_DESTROYED_SFX, 1, SOUND_PCM_CH4);
 
         //Show an exploded_mothership sprite in it's place
         SPR_setVisibility(exploded_mothership.sprite,VISIBLE);
@@ -494,31 +534,28 @@ void handleCollisions(){
     if(collideEntities( e, p ))
     {
       killEntity(e);
-      bulletsOnScreen--;
+      enemyBulletsOnScreen--;
 
-      //Play the alien destroyed sound effect
-      SND_stopPlayPCM_XGM(SOUND_PCM_CH1);
-      XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH3);
+      //Play the player destroyed sound effect
+      XGM_startPlayPCM(PLAYER_DIED_SFX, 1, SOUND_PCM_CH4);
     }
     e = &rolling_bullet_sprite;
     if(collideEntities( e, p ))
     {
       killEntity(e);
-      bulletsOnScreen--;
+      enemyBulletsOnScreen--;
 
-      //Play the alien destroyed sound effect
-      SND_stopPlayPCM_XGM(SOUND_PCM_CH1);
-      XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH3);
+      //Play the player destroyed sound effect
+      XGM_startPlayPCM(PLAYER_DIED_SFX, 1, SOUND_PCM_CH4);
     }
     e = &squiggly_bullet_sprite;
     if(collideEntities( e, p ))
     {
       killEntity(e);
-      bulletsOnScreen--;
+      enemyBulletsOnScreen--;
 
-      //Play the alien destroyed sound effect
-      SND_stopPlayPCM_XGM(SOUND_PCM_CH1);
-      XGM_startPlayPCM(ALIEN_DESTROYED_SFX, 1, SOUND_PCM_CH3);
+      //Play the player destroyed sound effect
+      XGM_startPlayPCM(PLAYER_DIED_SFX, 1, SOUND_PCM_CH4);
     }
 	}
 }
@@ -786,9 +823,10 @@ void timingLoop()
     if (tick == 60){
       musicCycles();
       positionEnemies();
+      //Shoot an enemy bullet
+      shootEnemyBullet();
       time_to_shoot = TRUE;
       edgeHit();
-      shootEnemyBullet();
       tick = 0;
     }
   }
@@ -829,21 +867,24 @@ void gameInit()
   exploded_mothership.sprite = SPR_addSprite(&mothership_exploding,exploded_mothership.x,exploded_mothership.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
 
   //Rolling Bullet sprite
-  rolling_bullet_sprite.x = 100;
-  rolling_bullet_sprite.y = 32;
+  rolling_bullet_sprite.x = -16;
+  rolling_bullet_sprite.y = -16;
   rolling_bullet_sprite.w = 1;
+  rolling_bullet_sprite.health = 0;
   rolling_bullet_sprite.sprite = SPR_addSprite(&rolling_bullet,rolling_bullet_sprite.x,rolling_bullet_sprite.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
 
   //Plunger Bullet sprite
-  plunger_bullet_sprite.x = 108;
-  plunger_bullet_sprite.y = 32;
+  plunger_bullet_sprite.x = -16;
+  plunger_bullet_sprite.y = -16;
   plunger_bullet_sprite.w = 1;
+  plunger_bullet_sprite.health = 0;
   plunger_bullet_sprite.sprite = SPR_addSprite(&plunger_bullet,plunger_bullet_sprite.x,plunger_bullet_sprite.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
 
   //Squiggly Bullet sprite
-  squiggly_bullet_sprite.x = 126;
-  squiggly_bullet_sprite.y = 32;
+  squiggly_bullet_sprite.x = -16;
+  squiggly_bullet_sprite.y = -16;
   squiggly_bullet_sprite.w = 1;
+  squiggly_bullet_sprite.health = 0;
   squiggly_bullet_sprite.sprite = SPR_addSprite(&squiggly_bullet,squiggly_bullet_sprite.x,squiggly_bullet_sprite.y,TILE_ATTR(PAL1,0,FALSE,FALSE));
 
   //Create all shield sprites
@@ -883,6 +924,7 @@ void gameInit()
 
   //Create all enemy sprites
   Entity* e = enemies;
+  int c = 1; //To track the column - we need to reset to 1 if it reaches > 11
   for(i = 0; i < ENEMIES; i++)
   {
     if(i <=10){
@@ -891,6 +933,8 @@ void gameInit()
       e->w = 8;
       e->h = 8;
       e->velx = 1;
+      e->row = 1;
+      e->column = c;
       e->health = 1;
       e->points = 30;
       e->sprite = SPR_addSprite(&small_enemy,e->x,e->y,TILE_ATTR(PAL2,0,FALSE,FALSE));
@@ -903,6 +947,8 @@ void gameInit()
 	    e->w = 11;
 	    e->h = 8;
 	    e->velx = 1;
+      e->row = 2;
+      e->column = c;
 	    e->health = 1;
       e->points = 20;
 	    e->sprite = SPR_addSprite(&medium_enemy,e->x,e->y,TILE_ATTR(PAL2,0,FALSE,FALSE));
@@ -915,6 +961,8 @@ void gameInit()
 	    e->w = 11;
 	    e->h = 8;
 	    e->velx = 1;
+      e->row = 3;
+      e->column = c;
 	    e->health = 1;
       e->points = 20;
 	    e->sprite = SPR_addSprite(&medium_enemy,e->x,e->y,TILE_ATTR(PAL2,0,FALSE,FALSE));
@@ -927,6 +975,8 @@ void gameInit()
 	    e->w = 12;
 	    e->h = 8;
 	    e->velx = 1;
+      e->row = 4;
+      e->column = c;
 	    e->health = 1;
       e->points = 10;
 	    e->sprite = SPR_addSprite(&large_enemy,e->x,e->y,TILE_ATTR(PAL2,0,FALSE,FALSE));
@@ -939,12 +989,19 @@ void gameInit()
 	    e->w = 12;
 	    e->h = 8;
 	    e->velx = 1;
+      e->row = 5;
+      e->column = c;
 	    e->health = 1;
       e->points = 10;
 	    e->sprite = SPR_addSprite(&large_enemy,e->x,e->y,TILE_ATTR(PAL2,0,FALSE,FALSE));
 	    sprintf(e->name, "En%d",i);
 			enemiesLeft++;
 			e++;
+    }
+    if (c > 11){
+      c = 1;
+    } else {
+      c++;
     }
   }
 
@@ -957,11 +1014,15 @@ void gameInit()
 char tick_str[8];
 char enemies_str[8];
 char movespeed_str[8];
+char bulletType_str[8];
 void debugDisplay()
 {
   sprintf(tick_str,"%d",tick);
   sprintf(enemies_str,"%d",enemiesLeft);
   sprintf(movespeed_str,"%d",movespeed);
+  sprintf(bulletType_str,"%d",bulletType);
+  VDP_clearText(0,21,8);
+  VDP_drawText(bulletType_str,0,21);
   VDP_clearText(0,22,8);
   VDP_drawText(tick_str,0,22);
   VDP_clearText(0,23,8);
@@ -1001,6 +1062,7 @@ int main()
   XGM_setPCM(MUSIC_NOTE_3_SFX, music_note_3, sizeof(music_note_3));
   XGM_setPCM(MUSIC_NOTE_4_SFX, music_note_4, sizeof(music_note_4));
   XGM_setPCM(MOTHERSHIP_SFX, mothership_sfx, sizeof(mothership_sfx));
+  XGM_setPCM(MOTHERSHIP_DESTROYED_SFX, mothership_destroyed_sfx, sizeof(mothership_destroyed_sfx));
   XGM_setPCM(PLAYER_DIED_SFX, player_died_sfx, sizeof(player_died_sfx));
 
   gameInit();
@@ -1016,14 +1078,14 @@ int main()
     //Animate the enemies
     animateEnemies();
 
+    //Update the bullet positions
+    positionBullets();
+
     //Wait for vsync to stop flickering
     VDP_waitVSync();
 
     //Update all the sprites on screen
     SPR_update();
-
-    //Update the bullet positions
-    positionBullets();
 
     //Detect if items have collided
     handleCollisions();
